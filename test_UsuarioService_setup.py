@@ -10,18 +10,32 @@ def usuarioFeliz(scope="session"):
         email = "maria@exemplo.com",
         senha = "9876543210" )
     return usuario
+@pytest.fixture
+def usuarioFeliz2(scope="session"):
+    usuario = Usuario(
+        nome  = "Mario do Exemplo",
+        email = "mario@exemplo.com",
+        senha = "9876543210" )
+    return usuario
 
 
 @pytest.fixture(scope="function")
-def usuarioDAO(usuarioFeliz):
+def usuarioDAO(usuarioFeliz, usuarioFeliz2):
     #setup
     usuarioDAO = UsuarioDAO()
     usuarioBanco = usuarioDAO.buscar_por_email(usuarioFeliz.email)
     if(usuarioBanco is not None):
         usuarioDAO.excluir(usuarioBanco.id)
+        usuarioBanco = usuarioDAO.buscar_por_email(usuarioFeliz2.email)
+    if(usuarioBanco is not None):
+        usuarioDAO.excluir(usuarioBanco.id)
     yield usuarioDAO
     #teardown
     usuarioBanco = usuarioDAO.buscar_por_email(usuarioFeliz.email)
+    if(usuarioBanco is not None):
+        usuarioDAO.excluir(usuarioBanco.id)
+
+        usuarioBanco = usuarioDAO.buscar_por_email(usuarioFeliz2.email)
     if(usuarioBanco is not None):
         usuarioDAO.excluir(usuarioBanco.id)
     usuarioDAO.fechar()
@@ -111,6 +125,17 @@ def test_buscar_por_id_RV02_valida(usuarioService, usuarioFeliz):
     assert usuario.senha == usuarioBuscado.senha
 
 
+def test_buscar_por_id_RF02_invalida(usuarioService, usuarioFeliz):
+    usuario = usuarioService.cadastrar_usuario(
+        usuarioFeliz.nome,
+        usuarioFeliz.email,
+        usuarioFeliz.senha)
+    usuarioService.excluir_usuario(usuario.id)
+    with pytest.raises(ValueError,
+                       match=f'^Usuário com ID {usuario.id} não encontrado.$'):
+        usuarioService.buscar_por_id(usuario.id)
+
+
 def test_excluir_ususario_RF05_valido(usuarioService, usuarioFeliz):
     usuario = usuarioService.cadastrar_usuario(
         usuarioFeliz.nome,
@@ -154,3 +179,50 @@ def test_cadastro_invalido(usuarioService, usuarioFeliz, senha):
             usuarioFeliz.nome, usuarioFeliz.email,senha)
 
     
+@pytest.fixture(scope="function")
+def usuarioDAOVazio():
+    usuarioDAO = UsuarioDAO(":memory:")
+    yield usuarioDAO
+    usuarioDAO.fechar()
+
+def test_listar_usuarios_RF03_vazio(usuarioDAOVazio):
+    usuarioService = UsuarioService(usuarioDAOVazio)
+    listaVazia = usuarioService.listar_usuarios()
+    assert isinstance(listaVazia, list)
+    assert len(listaVazia) == 0
+
+def test_listar_usuarios_RF03_itens(usuarioDAOVazio, usuarioFeliz, usuarioFeliz2):
+    usuarioService = UsuarioService(usuarioDAOVazio)
+    usuarioService.cadastrar_usuario(
+        usuarioFeliz.nome,
+        usuarioFeliz.email,
+        usuarioFeliz.senha
+    )
+    usuarioService.cadastrar_usuario(
+        usuarioFeliz2.nome,
+        usuarioFeliz2.email,
+        usuarioFeliz2.senha
+    )
+    usuarios = usuarioService.listar_usuarios()
+    assert usuarioFeliz.nome == usuarios [0].nome
+    assert usuarioFeliz.email == usuarios [0].email
+    assert usuarioFeliz.senha == usuarios [0].senha
+    assert usuarioFeliz2.nome == usuarios [1].nome
+    assert usuarioFeliz2.email == usuarios [1].email
+    assert usuarioFeliz2.senha == usuarios [1].senha
+
+def test_atualizar_ususario_RF04_valida(usuarioService, usuarioFeliz, usuarioFeliz2):
+    cadastrado = usuarioService.cadastrar_usuario(
+        usuarioFeliz.nome,
+        usuarioFeliz.email,
+        usuarioFeliz.senha)
+    usuarioService.atualizar_usuario(
+        cadastrado.id,
+        usuarioFeliz2.nome,
+        usuarioFeliz2.email,
+        usuarioFeliz2.senha
+    )
+    atualizado = usuarioService.buscar_por_id(cadastrado.id)
+    assert usuarioFeliz2.nome == atualizado.nome
+    assert usuarioFeliz2.email == atualizado.email
+    assert usuarioFeliz2.senha == atualizado.senha

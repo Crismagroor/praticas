@@ -3,8 +3,9 @@ from Usuario import Usuario
 class UsuarioService:
     def __init__(self,dao):
         self.dao=dao
-    def cadastrar_usuario(self, nome, email,senha):
-        self.dao.inserir
+
+    def validar_usuario(self, nome, email, senha):
+        
         #RV01 -- Validação do nome
         #O nome não poderá ser None,vazio ou composto exclusivamente
         #Mensagem: Nome não pode estar em branco.
@@ -34,7 +35,11 @@ class UsuarioService:
         jaTemEmail =self.dao.buscar_por_email(email)
         if jaTemEmail is not None:
             raise ValueError(f'E-mail \'{email}\' já está cadastrado.')
-        
+         
+
+    def cadastrar_usuario(self, nome, email,senha):
+        self.validar_usuario(nome, email, senha)
+       
         #Criar um objeto da classe Usuario com os dados informados
         usuario = Usuario(nome,email ,senha)
         #Persisteir o novo por meio de UsuarioDAO.inserir(). 
@@ -53,3 +58,21 @@ class UsuarioService:
             raise ValueError("Usuário não encontrado para exclusão.")
         else:
             self.dao.excluir(id)
+
+    def listar_usuarios(self):
+        return self.dao.listar_todos()
+    
+   
+    def atualizar_usuario(self, id, nome, email, senha):
+        self.validar_usuario(nome,email,senha)
+        '''RV05 -- Não poderá existir outro usuário cadastrado com o mesmo e-mail.
+        Mensagem de erro:
+        E-mail 'EMAIL' já está cadastrado.'''
+        
+        
+        jaTemEmail =self.dao.buscar_por_email(email)
+        if jaTemEmail is not None and jaTemEmail.id != id:
+            raise ValueError(f'E-mail \'{email}\' já está cadastrado.')
+        usuario = Usuario(nome, email, senha, id)
+        self.dao.atualizar(usuario)
+         
